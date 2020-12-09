@@ -8,7 +8,7 @@ module Checkers =
     type Board = Piece option list list
 
 
-    let getBoardState boardStateCharacter =
+    let getBoardState boardStateCharacter : Piece option =
         match boardStateCharacter with 
         | '.' -> None
         | 'r' -> Some (Red, Soldier)
@@ -18,7 +18,7 @@ module Checkers =
         | _ -> None
 
     let parseBoardLine line =
-        line |> Seq.map getBoardState
+        line |> Seq.toList |> List.map getBoardState
     
-    let parseBoard lines =
-        lines |> Seq.map parseBoardLine
+    let parseBoard lines : Board =
+        lines |> List.map parseBoardLine
