@@ -18,4 +18,4 @@ module Checkers =
         | _ -> None
 
     let parseLine (line:string) =
-        line |> Seq.map getBoardState |> Seq.toArray
+        line |> Seq.map getBoardState
