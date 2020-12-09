@@ -17,5 +17,8 @@ module Checkers =
         | 'B' -> Some (Black, King)
         | _ -> None
 
-    let parseLine (line:string) =
+    let parseBoardLine line =
         line |> Seq.map getBoardState
+    
+    let parseBoard lines =
+        lines |> Seq.map parseBoardLine
