@@ -66,7 +66,7 @@ type MyTests(output:ITestOutputHelper) =
         let boardStrings = [ for i in 1 .. 8 -> "r......." ]
         let board = parseBoard boardStrings
         let head = board |> List.head |> List.head
-        let isOccupied = isSquareOccupiedByPlayer head Red
+        let isOccupied = isSquareOccupiedByPlayer Red head
         Assert.Equal(true, isOccupied)
 
     [<Fact>]
@@ -74,7 +74,7 @@ type MyTests(output:ITestOutputHelper) =
         let boardStrings = [ for i in 1 .. 8 -> "R......." ]
         let board = parseBoard boardStrings
         let head = board |> List.head |> List.head
-        let isOccupied = isSquareOccupiedByPlayer head Red
+        let isOccupied = isSquareOccupiedByPlayer Red head
         Assert.Equal(true, isOccupied)
 
     [<Fact>]
@@ -82,32 +82,14 @@ type MyTests(output:ITestOutputHelper) =
         let boardStrings = [ for i in 1 .. 8 -> "b......." ]
         let board = parseBoard boardStrings
         let head = board |> List.head |> List.head
-        let isOccupied = isSquareOccupiedByPlayer head Red
+        let isOccupied = isSquareOccupiedByPlayer Red head
         Assert.Equal(false, isOccupied)
-
-    [<Fact>]
-    let ``Get red moves should be 0`` () =
-        let board = parseBoard initialBoard
-        let square = board.[0].[1]
-        let moves = getRedMoves board square
-        output.WriteLine("starting location {0}", square)
-        output.WriteLine("available red moves {0}", moves)
-        Assert.Equal(0, moves |> List.length)
-    
-    [<Fact>]
-    let ``Get red moves should be 2`` () =
-        let board = parseBoard initialBoard
-        let square = board.[2].[1]
-        let moves = getRedMoves board square
-        output.WriteLine("starting location {0}", square)
-        output.WriteLine("available red moves {0}", moves)
-        Assert.Equal(2, moves |> List.length)
 
     [<Fact>]
     let ``Get legal moves produces two for red`` () =
         let board = parseBoard initialBoard
-        let head = board |> List.head |> List.head
-        let moves = getLegalNonJumps board Red
-        Assert.Equal(12, moves |> List.length)
+        let moves = getLegalMoves (board, Red)
+        output.WriteLine("available red moves {0}", sprintf "%A" moves)
+        Assert.Equal(7, moves |> List.length)
 
 

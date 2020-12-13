@@ -24,9 +24,6 @@ module Checkers =
     let parseBoard lines : Board =
         lines |> List.mapi parseBoardLine
 
-    let getLegalJumps board player =
-        []
-
     let convertLocationToString (location:Location) =
         let (row, col) = location
         let colName = match col with 
@@ -49,7 +46,7 @@ module Checkers =
                             | None -> false
                             | Some(_) -> true
 
-    let isSquareOccupiedByPlayer square player =
+    let isSquareOccupiedByPlayer player square =
         match square with
         | (piece, _) -> match piece with
                         | None -> false
@@ -59,44 +56,41 @@ module Checkers =
                             | (Black, Black) -> true
                             | _ -> false
     
-    let getRedMoves board square =
-        //check diagonal southwest and southeast
-        let _, location = square
+    let isMoveInRange loc =
+        match loc with
+        | (x,y) when x < 0 || x > 7 || y > 7 || y < 0 -> false
+        | _ -> true
+
+    let isMovePossibleForPlayer player loc =
+        match loc with
+        | (x,y) when x < 0 || x > 7 || y > 7 || y < 0 -> false
+        | _ -> true
+
+    let generatePossibleMoves (board:Board, square:Square): Move list =
+        let piece, location = square
+        let player = match piece with
+                     | None -> None
+                     | Some(player, _) -> Some player
+        
         let (locRow, locCol) = location
-        //on the second row this fails because the col is on the edge
-        let possibleMoves = [(locRow + 1, locCol - 1); (locRow + 1, locCol + 1)]
-        let validLocations = possibleMoves |> List.filter (fun move -> not (isLocationOccupied (board, move)))
-        validLocations |> List.map (fun newLoc -> (location, newLoc))
+        
+        //generate all 4 moves, 
+        let possibleLocations = [(locRow + 1, locCol - 1); (locRow + 1, locCol + 1); (locRow - 1, locCol - 1); (locRow - 1, locCol + 1);]
+        
+        possibleLocations 
+            |> List.filter isMoveInRange 
+            |> List.filter (isMovePossibleForPlayer player) 
+            |> List.filter (fun move -> not (isLocationOccupied (board, move)))
+            |> List.map (fun move -> (location, move))
 
-    let getBlackMoves board square =
-        //check diagonal southwest and southeast
-        let _, location = square
-        let (locRow, locCol) = location
-        let possibleMoves = [(locRow - 1, locCol - 1); (locRow - 1, locCol + 1)]
-        let validLocations = possibleMoves |> List.filter (fun move -> isLocationOccupied (board, move))
-        validLocations |> List.map (fun newLoc -> (location, newLoc))
-
-
-    let hasMove board player square =
-        match player with
-        | Red -> getRedMoves board square
-        | Black -> getBlackMoves board square
-
-    let getLegalNonJumps board player =
+    let getLegalMoves (board:Board, player:Player) : Move list=
         //process the board and find non jump moves for current player
         let x = board
                     |> List.concat
-                    |> List.filter (fun square -> isSquareOccupiedByPlayer square player)
-                    |> List.map (hasMove board player)
+                    |> List.filter (isSquareOccupiedByPlayer player)
+                    |> List.collect (fun square -> generatePossibleMoves(board, square))
         x
-
-    (*let getLegalMoves (board:Board, player:Player) : Move list =
-        let jumps = getLegalJumps(board,player)
-        match jumps |> List.length with
-        | x when x > 0 -> jumps
-        | x when x = 0 -> getLegalNonJumps(board, player)
-        | _ -> []
-
+(*
     let getNextMove (board:Board, player:Player) : string =
         //first get a list of legal moves
         //select the first legal move as a naieve approach
