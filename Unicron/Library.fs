@@ -79,7 +79,7 @@ module Checkers =
             | (Red, King) -> true //King can move in all four directions, so never false.
             | (Black, King) -> true //King can move in all four directions, so never false.
 
-    let generatePossibleMoves (board:Board, square:Square): Move list =
+    let generatePossibleNonJumpMoves (board:Board, square:Square): Move list =
         let piece, currLocation = square
         let (locRow, locCol) = currLocation
         
@@ -92,13 +92,21 @@ module Checkers =
             |> List.filter (fun move -> not (isLocationOccupied (board, move)))
             |> List.map (fun move -> (currLocation, move))
 
+    let generatePossibleJumpMoves (board:Board, square:Square): Move list =
+        []
+        
     let getLegalMoves (board:Board, player:Player) : Move list=
         //process the board and find non jump moves for current player
-        let x = board
-                    |> List.concat
-                    |> List.filter (isSquareOccupiedByPlayer player)
-                    |> List.collect (fun square -> generatePossibleMoves(board, square))
-        x
+        let playerSquares = board
+                            |> List.concat
+                            |> List.filter (isSquareOccupiedByPlayer player)
+                    
+        let jumpMoves = playerSquares |> List.collect (fun square -> generatePossibleJumpMoves(board, square))
+
+        match jumpMoves |> List.length with
+            | x when x > 0 -> jumpMoves
+            | x when x <= 0 -> playerSquares |> List.collect (fun square -> generatePossibleNonJumpMoves(board, square))
+            | _ -> []
 (*
     let getNextMove (board:Board, player:Player) : string =
         //first get a list of legal moves
