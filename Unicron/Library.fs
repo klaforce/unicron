@@ -32,16 +32,26 @@ module Checkers =
     let convertLocationToString (location:Location) =
         let (row, col) = location
         let colName = match col with 
-                        | 1 -> "A"
-                        | 2 -> "B"
-                        | 3 -> "C"
-                        | 4 -> "D"
-                        | 5 -> "E"
-                        | 6 -> "F"
-                        | 7 -> "G"
-                        | 8 -> "H"
+                        | 0 -> "A"
+                        | 1 -> "B"
+                        | 2 -> "C"
+                        | 3 -> "D"
+                        | 4 -> "E"
+                        | 5 -> "F"
+                        | 6 -> "G"
+                        | 7 -> "H"
                         | _ -> ""
-        sprintf "%s%i" colName row
+        let rowName = match row with 
+                        | 0 -> "8"
+                        | 1 -> "7"
+                        | 2 -> "6"
+                        | 3 -> "5"
+                        | 4 -> "4"
+                        | 5 -> "3"
+                        | 6 -> "2"
+                        | 7 -> "1"
+                        | _ -> ""
+        sprintf "%s%s" colName rowName
 
     let isLocationOccupied (board:Board, location:Location) =
         let (row, col) = location
