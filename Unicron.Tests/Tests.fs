@@ -92,4 +92,21 @@ type MyTests(output:ITestOutputHelper) =
         output.WriteLine("available red moves {0}", sprintf "%A" moves)
         Assert.Equal(7, moves |> List.length)
 
+    [<Fact>]
+    let ``Red soldier can not move backwards`` () =
+        let redSetup = [
+            ".r.r.r.r";
+            "r.r.r.r.";
+            "...r.r.r";
+            "r.......";
+            ".b......";
+            "b...b.b.";
+            ".b.b.b.b";
+            "b.b.b.b."]
+
+        let board = parseBoard redSetup
+        let moves = getLegalMoves (board, Red)
+        output.WriteLine("available red moves {0}", sprintf "%A" moves)
+        Assert.Equal(7, moves |> List.length)
+
 

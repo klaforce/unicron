@@ -56,32 +56,41 @@ module Checkers =
                             | (Black, Black) -> true
                             | _ -> false
     
-    let isMoveInRange loc =
+    let isLocationInRange loc =
         match loc with
         | (x,y) when x < 0 || x > 7 || y > 7 || y < 0 -> false
         | _ -> true
 
-    let isMovePossibleForPlayer player loc =
-        match loc with
-        | (x,y) when x < 0 || x > 7 || y > 7 || y < 0 -> false
-        | _ -> true
+    let isLocationPossibleForPiece (piece:Piece option, loc:Location, currLocation:Location) : bool =
+        match piece with
+        | None -> false
+        | Some piece ->
+            match piece with
+            | (Red, Soldier) -> 
+                match loc, currLocation with
+                | ((locRow, _), (currRow, _)) when locRow <= currRow -> false //can't go backwards
+                | ((locRow, _), (currRow, _)) when locRow > currRow -> true //can't go backwards
+                | _ -> false
+            | (Black, Soldier) ->
+                match loc, currLocation with
+                | ((locRow, _), (currRow, _)) when locRow >= currRow -> false //can't go backwards
+                | ((locRow, _), (currRow, _)) when locRow < currRow -> true //can't go backwards
+                | _ -> false
+            | (Red, King) -> true //King can move in all four directions, so never false.
+            | (Black, King) -> true //King can move in all four directions, so never false.
 
     let generatePossibleMoves (board:Board, square:Square): Move list =
-        let piece, location = square
-        let player = match piece with
-                     | None -> None
-                     | Some(player, _) -> Some player
+        let piece, currLocation = square
+        let (locRow, locCol) = currLocation
         
-        let (locRow, locCol) = location
-        
-        //generate all 4 moves, 
+        //generate all 4 possible moves and then filter on possibility
         let possibleLocations = [(locRow + 1, locCol - 1); (locRow + 1, locCol + 1); (locRow - 1, locCol - 1); (locRow - 1, locCol + 1);]
         
         possibleLocations 
-            |> List.filter isMoveInRange 
-            |> List.filter (isMovePossibleForPlayer player) 
+            |> List.filter isLocationInRange 
+            |> List.filter (fun loc -> isLocationPossibleForPiece(piece, loc,currLocation)) 
             |> List.filter (fun move -> not (isLocationOccupied (board, move)))
-            |> List.map (fun move -> (location, move))
+            |> List.map (fun move -> (currLocation, move))
 
     let getLegalMoves (board:Board, player:Player) : Move list=
         //process the board and find non jump moves for current player
