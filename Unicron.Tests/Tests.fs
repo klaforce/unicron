@@ -99,15 +99,15 @@ type MyTests(output:ITestOutputHelper) =
             "r.r.r.r.";
             "...r.r.r";
             "r.......";
-            ".b......";
-            "b...b.b.";
+            "........";
+            "b.b.b.b.";
             ".b.b.b.b";
             "b.b.b.b."]
 
         let board = parseBoard redSetup
         let moves = getLegalMoves (board, Red)
         output.WriteLine("available red moves {0}", sprintf "%A" moves)
-        Assert.Equal(7, moves |> List.length)
+        Assert.Equal(8, moves |> List.length)
 
     [<Fact>]
     let ``Black soldier can not move backwards`` () =
@@ -125,5 +125,39 @@ type MyTests(output:ITestOutputHelper) =
         let moves = getLegalMoves (board, Black)
         output.WriteLine("available black moves {0}", sprintf "%A" moves)
         Assert.Equal(7, moves |> List.length)
+
+    [<Fact>]
+    let ``Red soldier can jump forward`` () =
+        let redSetup = [
+            ".r.r.r.r";
+            "r.r.r.r.";
+            "...r.r.r";
+            "r.......";
+            ".b......";
+            "b...b.b.";
+            ".b.b.b.b";
+            "b.b.b.b."]
+
+        let board = parseBoard redSetup
+        let moves = getLegalMoves (board, Red)
+        output.WriteLine("available red moves {0}", sprintf "%A" moves)
+        Assert.Equal(1, moves |> List.length)
+
+    [<Fact>]
+    let ``Red king can jump backward`` () =
+        let redSetup = [
+            ".r.r.r.r";
+            "r...r.r.";
+            ".b.r.r.r";
+            "R.......";
+            "........";
+            "b...b.b.";
+            ".b.b.b.b";
+            "b.b.b.b."]
+
+        let board = parseBoard redSetup
+        let moves = getLegalMoves (board, Red)
+        output.WriteLine("available red moves {0}", sprintf "%A" moves)
+        Assert.Equal(2, moves |> List.length)
 
 
