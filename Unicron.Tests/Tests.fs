@@ -18,6 +18,13 @@ type MyTests(output: ITestOutputHelper) =
           "b.b.b.b." ]
 
     [<Fact>]
+    let ``A move is selected`` () =
+        let board = parseBoard initialBoard
+        let move = selectMove (board, Red, 3)
+        output.WriteLine("selected move is ", sprintf "%A" move)
+        Assert.Equal(None, move)
+
+    [<Fact>]
     let ``An empty board position is parsed`` () =
         let boardState = parseBoardLine 0 "........"
         let head = boardState |> List.head
