@@ -1,6 +1,7 @@
 ﻿namespace Unicron
 
 module Checkers =
+    open System
     type Player = Red | Black
     type Rank = Soldier | King
     type Piece = Player * Rank
@@ -151,9 +152,130 @@ module Checkers =
             | x when x > 0 -> jumpMoves
             | x when x <= 0 -> playerSquares |> List.collect (fun square -> generatePossibleNonJumpMoves(board, square))
             | _ -> []
-(*
-    let getNextMove (board:Board, player:Player) : string =
-        //first get a list of legal moves
-        //select the first legal move as a naieve approach
-        let legalMoves =   getLegalMoves(board, player)
-        "E"*)
+
+
+    let getNextPlayer player =
+            match player with
+            | Red -> Black
+            | Black -> Red
+     
+    let utcScore parentRollouts childRollouts winPct = 
+        let exploration = Math.Sqrt (Math.Log(float parentRollouts)/(float childRollouts))
+        winPct + 1.5 * exploration
+
+    type MCTSNode = { 
+        possibleMoves: seq<Move>
+        children: Map<Move, MCTSNode>
+        numRollouts: int
+        gameState: Board
+        winCounts: Map<Player, int>
+        currentPlayer: Player
+    }
+
+    let createNode (gameState:Board, player:Player) = 
+        { 
+            possibleMoves = (getLegalMoves(gameState, player)) 
+            children = Map.empty
+            numRollouts = 0
+            gameState = gameState
+            winCounts = Map.empty |>  Map.add (Black) 0 |> Map.add (Red) 0
+            currentPlayer = player
+        }
+
+    let createNodeFromWinner (gameState:Board, winner:Player):MCTSNode =
+        let node = createNode (gameState, winner)
+        { node with numRollouts = 1; winCounts = Map.add winner 1 node.winCounts }
+
+    let unvisitedMoves node = 
+        getLegalMoves(node.gameState, node.currentPlayer)
+        |> Seq.filter (fun mv -> not (Map.containsKey mv node.children))
+
+    let canAddChild node = 
+        Seq.length (unvisitedMoves node) > 0
+
+    let isTerminal node = 
+        getLegalMoves(node.gameState, node.currentPlayer) |> Seq.isEmpty
+
+    let winningPercent node player = 
+        Map.tryFind player node.winCounts
+           |> Option.map (fun i -> (float i) / (float node.numRollouts) ) 
+           |> Option.defaultValue 0.0
+
+    let selectChild player node = 
+            let totalRollouts = node.children |> Map.fold (fun state _ node -> state + node.numRollouts) 0
+            node.children
+            |> Map.toList
+            |> Seq.map (fun (mv,c) -> ((mv, c), utcScore totalRollouts c.numRollouts (winningPercent node player)))
+            |> Seq.maxBy (fun (_, n) -> n)
+            |> fst
+
+    let applyMove (board:Board, player:Player, move:Move) = 
+        board
+
+    let random = Random()
+    let addRandomChild node = 
+        let possibleMoves = unvisitedMoves node
+        let index = random.Next (Seq.length possibleMoves - 1)
+        let nextPlayer = (getNextPlayer node.currentPlayer)
+        let newMove = possibleMoves |> Seq.item index
+        let newGameState = applyMove(node.gameState, nextPlayer, newMove)
+        (newMove, createNode (newGameState, nextPlayer))
+
+    let getRandomMove node = 
+        let possibleMoves = unvisitedMoves node
+        let index = random.Next (Seq.length possibleMoves - 1)
+        possibleMoves |> Seq.item index
+
+    let isOver gameState = 
+        true
+
+    let determineWinner gameState =
+        Red
+
+    let selectRandomMove gameState =
+        ((0,0), (0,0))
+
+    let simulateRandomGame (gameState:Board, player:Player) = 
+        let rec play game = 
+            match (isOver game) with
+            | true ->  determineWinner game
+            | false -> let move = selectRandomMove game
+                       play (applyMove (game, getNextPlayer player, move))
+        play gameState
+
+
+    let rec private updateWinningState node child move winner =
+        let prevCount = Map.find winner node.winCounts
+        { node with children = Map.add move child node.children
+                    numRollouts = node.numRollouts + 1
+                    winCounts = Map.add winner (prevCount + 1) node.winCounts}
+
+    let rec select node  = 
+        if not (canAddChild node) && not (isTerminal node)
+        then let (move, child) = selectChild (getNextPlayer node.currentPlayer) node
+             let (winner, expanded) = select child
+             (winner, updateWinningState node expanded move winner)
+        elif canAddChild node
+        then let move = getRandomMove node
+             let nextState = applyMove (node.gameState, (getNextPlayer node.currentPlayer), move)
+             let winner = simulateRandomGame (nextState, node.currentPlayer)
+             let child =  createNodeFromWinner (nextState, winner)
+             (winner, updateWinningState node child move winner)
+        else let winner = determineWinner node.gameState
+             (winner, node)
+
+    let selectMove (board:Board, player:Player, numRounds:int) = 
+        let hasLegalMoves = getLegalMoves(board, player) |> Seq.isEmpty
+        let nextPlayer = getNextPlayer player
+        match hasLegalMoves with
+        | false -> None
+        | true -> 
+            let root =
+                seq { 1 .. numRounds}
+                |> Seq.fold (fun node _ -> select node |> snd) (createNode(board, player))
+
+            root.children
+            |> Map.toSeq
+            |> Seq.map (fun (move, child) -> (winningPercent child nextPlayer, move))
+            |> Seq.maxBy (fun (p,_) -> p)
+            |> (fun (_, move) -> Some move)
