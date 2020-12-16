@@ -1,9 +1,7 @@
 ﻿namespace Unicron
-(* Auto-generated code below aims at helping you parse *)
-(* the standard input according to the problem statement. *)
 open System
 
-module Checkers =
+module Checkers = 
     type Player =
         | Red
         | Black
@@ -479,7 +477,4 @@ module Checkers =
 
         match move with
         | None -> ""
-        | Some move -> 
-            (convertLocationToString move.origin) + (convertLocationToString move.destination)
-
-
+        | Some move -> (convertLocationToString move.origin) + (convertLocationToString move.destination)
