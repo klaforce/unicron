@@ -1,8 +1,9 @@
 let myColor = Console.In.ReadLine() (* r or b *)
+
 let myPlayer = match myColor with
                 | "r" -> Checkers.Red
-                | _ -> Checkers.Black
-
+                | "b" -> Checkers.Black
+                | _ -> Checkers.Red
 (* game loop *)
 while true do
     let initialBoard = List.init 8 (fun n -> Console.In.ReadLine())

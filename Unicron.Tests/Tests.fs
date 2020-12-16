@@ -24,6 +24,38 @@ type MyTests(output: ITestOutputHelper) =
 
         let hasMove = not (String.IsNullOrEmpty move)
         Assert.Equal(true, hasMove)
+    
+    [<Fact>]
+    let ``King me`` () =
+        let kingMeBoard =
+            [ ".r...r.r"
+              "r.r.r.r."
+              ".r.r.b.r"
+              "........"
+              "........"
+              "b.b.b.b."
+              ".b.b.b.b"
+              "b.b.b.b." ]
+        let board = parseBoard kingMeBoard
+        let move = play (board, Black)
+
+        Assert.Equal("F6D8", move)
+    
+    [<Fact>]
+    let ``Test infinite loop`` () =
+        let board =
+            [ "...r.r.r"
+              "r.r.r.r."
+              "...r.r.r"
+              "..r....."
+              ".....b.b"
+              "b.r.b.b."
+              ".b.....b"
+              "b.b.b.b." ]
+        let board = parseBoard board
+        let move = play (board, Black)
+
+        Assert.Equal("B2D4", move)
 
     [<Fact>]
     let ``An empty board position is parsed`` () =

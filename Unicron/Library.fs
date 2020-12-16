@@ -269,7 +269,15 @@ module Checkers =
     let inline replace list a b =
         list |> List.map (fun x -> if x = a then b else x)
 
-    let placeChecker (board: Board, move: Move) =
+    let updateBoard (board:Board, row:int, col:int, pieceChar:char):Board =
+        let boardRow = board.[row]
+
+        let newRow =
+            replace boardRow boardRow.[col] (getBoardState row col pieceChar)
+
+        replace board board.[row] newRow
+
+    let placeChecker (board: Board, player:Player, move: Move) =
         let { origin = myOrigin; destination = myDestination; jump = myJump; jumpLocation = myJumpLocation } = move
         let (originRow, originCol) = myOrigin
         let (destRow, destCol) = myDestination
@@ -280,49 +288,37 @@ module Checkers =
         | Some piece ->
             let pieceChar =
                 match piece with
-                | (Red, Soldier) -> 'r'
-                | (Black, Soldier) -> 'b'
+                | (Red, Soldier) ->
+                    match destRow with
+                    | 7 -> 'R'
+                    | _ -> 'r'
+                | (Black, Soldier) -> 
+                    match destRow with
+                    | 0 -> 'B'
+                    | _ -> 'b'
                 | (Red, King) -> 'R'
                 | (Black, King) -> 'B'
 
-            let boardOriginRow = board.[originRow]
-
-            let newOrigin =
-                replace boardOriginRow boardOriginRow.[originCol] (getBoardState originRow originCol '.')
-
-            let newBoard =
-                replace board board.[originRow] newOrigin
-
-            let boardDestRow = newBoard.[destRow]
-
-            let newDest =
-                replace boardDestRow boardDestRow.[destCol] (getBoardState destRow destCol pieceChar)
-
-            let finalBoard = replace newBoard board.[destRow] newDest
+            let newBoard = updateBoard(board, originRow, originCol, '.')
+            let finalBoard = updateBoard(newBoard, destRow, destCol, pieceChar)
 
             //remove jump if necessary
             match myJump with
             | false -> finalBoard
             | true ->
-                let (jumpRow, jumpCol) =
+                let (jumpRow, jumpCol) = 
                     match myJumpLocation with
                     | None -> (0, 0)
                     | Some j -> j
 
-                let boardJumpRow = finalBoard.[jumpRow]
-
-                let newJump =
-                    replace boardJumpRow boardJumpRow.[jumpCol] (getBoardState jumpRow jumpCol '.')
-
-                let finalJumpBoard =
-                    replace finalBoard finalBoard.[jumpRow] newJump
+                let finalJumpBoard = updateBoard(finalBoard, jumpRow, jumpCol, '.')
 
                 finalJumpBoard
 
     let applyMove (gameState: GameState, move: Move option) =
         match move with
-        | Some p ->
-            let nextBoard = placeChecker (gameState.board, p)
+        | Some m ->
+            let nextBoard = placeChecker (gameState.board, gameState.currPlayer, m)
 
             { board = nextBoard;
                 nextPlayer = getNextPlayer gameState.nextPlayer;
@@ -425,28 +421,37 @@ module Checkers =
                 numRollouts = node.numRollouts + 1
                 winCounts = Map.add winner (prevCount + 1) node.winCounts }
 
-    let rec select node =
-        match not (canAddChild node), not (isTerminal node) with
-        | true, true ->
-            let (move, child) =
-                selectChild (getNextPlayer node.gameState.currPlayer) node
+    let rec select node startTime =
+        let currTime = DateTime.Now
+        let diffTime = Math.Abs( float((startTime - currTime).Milliseconds))
 
-            let (winner, expanded) = select child
-            (winner, updateWinningState node expanded move winner)
-        | false, _ ->
-            let move = getRandomMove node
-
-            let nextState = applyMove (node.gameState, Some move)
-
-            let winner = simulateRandomGame (nextState)
-
-            let child = createNodeFromWinner (nextState, winner)
-            (winner, updateWinningState node child move winner)
-        | _, _ ->
+        match diffTime with
+        | (diffTime) when diffTime > 85. ->
             let gameResult = getGameResult node.gameState
             (gameResult.winner, node)
+        | _ ->
+            match not (canAddChild node), not (isTerminal node) with
+            | true, true ->
+                let (move, child) =
+                    selectChild (getNextPlayer node.gameState.currPlayer) node
+
+                let (winner, expanded) = select child startTime
+                (winner, updateWinningState node expanded move winner)
+            | false, _ ->
+                let move = getRandomMove node
+
+                let nextState = applyMove (node.gameState, Some move)
+
+                let winner = simulateRandomGame (nextState)
+
+                let child = createNodeFromWinner (nextState, winner)
+                (winner, updateWinningState node child move winner)
+            | _, _ ->
+                let gameResult = getGameResult node.gameState
+                (gameResult.winner, node)
 
     let selectMove (board: Board, player: Player, numRounds: int) =
+        let startTime = DateTime.Now
         let gameState =
             { board = board;
                 nextPlayer = getNextPlayer player;
@@ -464,7 +469,7 @@ module Checkers =
         | false ->
             let root =
                 seq { 1 .. numRounds }
-                |> Seq.fold (fun node _ -> select node |> snd) (createNode gameState)
+                |> Seq.fold (fun node _ -> select node startTime |> snd) (createNode gameState)
 
             root.children
             |> Map.toSeq
@@ -473,7 +478,7 @@ module Checkers =
             |> (fun (_, move) -> Some move)
 
     let play (board: Board, player: Player) =
-        let move = selectMove (board, player, 1)
+        let move = selectMove (board, player, 100)
 
         match move with
         | None -> ""
