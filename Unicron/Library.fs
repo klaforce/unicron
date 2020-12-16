@@ -12,8 +12,14 @@ module Checkers =
         | King
 
     type Piece = Player * Rank
-    type Move = ((int * int) * (int * int))
     type Location = (int * int)
+
+    type Move =
+        { origin: Location
+          destination: Location
+          jump: bool
+          jumpLocation: Location option }
+
     type Square = (Piece option * Location)
     type Board = Square list list
 
@@ -134,16 +140,20 @@ module Checkers =
 
         //generate all 4 possible moves and then filter on possibility
         let possibleLocations =
-            [ (locRow + 1, locCol - 1)
-              (locRow + 1, locCol + 1)
-              (locRow - 1, locCol - 1)
-              (locRow - 1, locCol + 1) ]
+            [ Location(locRow + 1, locCol - 1)
+              Location(locRow + 1, locCol + 1)
+              Location(locRow - 1, locCol - 1)
+              Location(locRow - 1, locCol + 1) ]
 
         possibleLocations
         |> List.filter isLocationInRange
         |> List.filter (fun loc -> isLocationPossibleForPiece (piece, loc, currLocation))
         |> List.filter (fun move -> not (isLocationOccupied (board, move)))
-        |> List.map (fun move -> (currLocation, move))
+        |> List.map (fun move ->
+            { destination = move
+              origin = currLocation
+              jump = false
+              jumpLocation = None })
 
     let generatePossibleJumpMoves (board: Board, square: Square): Move list =
         let piece, currLocation = square
@@ -160,7 +170,11 @@ module Checkers =
         |> List.filter (fun jump -> isLocationInRange (fst jump))
         |> List.filter (fun jump -> isLocationPossibleForPiece (piece, (fst jump), currLocation))
         |> List.filter (fun jump -> isLocationOccupiedAndJumpOpen (board, (fst jump), (snd jump), piece))
-        |> List.map (fun jump -> (currLocation, (snd jump))) //pick the jump location
+        |> List.map (fun jump ->
+            { destination = (snd jump)
+              origin = currLocation
+              jump = true
+              jumpLocation = Some(fst jump) }) //pick the jump location
 
     let getLegalMoves (board: Board, player: Player): Move list =
         //process the board and find non jump moves for current player
@@ -207,7 +221,14 @@ module Checkers =
           numRollouts: int
           gameState: GameState
           winCounts: Map<Player, int> }
-    type GameResult = {winner: Player; winningMargin: float}
+
+    type GameResult =
+        { winner: Player
+          winningMargin: float }
+
+    type CheckerCount =
+        { blackCheckers: int
+          redCheckers: int }
 
     let createNode (gameState: GameState) =
         { possibleMoves = (getLegalMoves (gameState.board, gameState.currPlayer))
@@ -249,7 +270,75 @@ module Checkers =
         |> Seq.maxBy (fun (_, n) -> n)
         |> fst
 
-    let applyMove (gameState: GameState, move: Move option) = gameState
+    let inline replace list a b =
+        list |> List.map (fun x -> if x = a then b else x)
+
+    let placeChecker (board: Board, move: Move) =
+        let { origin = myOrigin; destination = myDestination; jump = myJump; jumpLocation = myJumpLocation } = move
+        let (originRow, originCol) = myOrigin
+        let (destRow, destCol) = myDestination
+        let (piece, _) = board.[originRow].[originCol]
+
+        match piece with
+        | None -> board
+        | Some piece ->
+            let pieceChar =
+                match piece with
+                | (Red, Soldier) -> 'r'
+                | (Black, Soldier) -> 'b'
+                | (Red, King) -> 'R'
+                | (Black, King) -> 'B'
+
+            let boardOriginRow = board.[originRow]
+
+            let newOrigin =
+                replace boardOriginRow boardOriginRow.[originCol] (getBoardState originRow originCol '.')
+
+            let newBoard =
+                replace board board.[originRow] newOrigin
+
+            let boardDestRow = newBoard.[destRow]
+
+            let newDest =
+                replace boardDestRow boardDestRow.[destCol] (getBoardState destRow destCol pieceChar)
+
+            let finalBoard = replace newBoard board.[destRow] newDest
+
+            //remove jump if necessary
+            match myJump with
+            | false -> finalBoard
+            | true ->
+                let (jumpRow, jumpCol) =
+                    match myJumpLocation with
+                    | None -> (0, 0)
+                    | Some j -> j
+
+                let boardJumpRow = finalBoard.[jumpRow]
+
+                let newJump =
+                    replace boardJumpRow boardJumpRow.[jumpCol] (getBoardState jumpRow jumpCol '.')
+
+                let finalJumpBoard =
+                    replace finalBoard finalBoard.[jumpRow] newJump
+
+                finalJumpBoard
+
+    let applyMove (gameState: GameState, move: Move option) =
+        match move with
+        | Some p ->
+            let nextBoard = placeChecker (gameState.board, p)
+
+            { board = nextBoard
+              nextPlayer = getNextPlayer gameState.nextPlayer
+              previousState = Some gameState
+              lastMove = move
+              currPlayer = gameState.nextPlayer }
+        | None ->
+            { board = gameState.board
+              nextPlayer = getNextPlayer gameState.nextPlayer
+              previousState = Some gameState
+              lastMove = None
+              currPlayer = gameState.nextPlayer }
 
     let random = Random()
 
@@ -273,23 +362,7 @@ module Checkers =
 
         possibleMoves |> Seq.item index
 
-    let isOver gameState = true
-
-    let determineWinner gameState = Red
-
-    let selectRandomMove (gameState:GameState) : Move option =
-        let rnd = System.Random()
-
-        let candidates =
-            getLegalMoves (gameState.board, gameState.currPlayer)
-
-        match List.isEmpty candidates with
-        | false -> None
-        | true ->
-            let randomIndex = rnd.Next(List.length candidates - 1)
-            Some (List.item randomIndex candidates)
-
-    let getGameResult (gameState:GameState) =
+    let checkCount gameState =
         let redCheckers =
             gameState.board
             |> List.concat
@@ -302,20 +375,48 @@ module Checkers =
             |> List.filter (isSquareOccupiedByPlayer Black)
             |> List.length
 
-        let playerWin = match blackCheckers < redCheckers with
-                            | false -> Black
-                            | true -> Red
+        { blackCheckers = blackCheckers
+          redCheckers = redCheckers }
 
-        { winner = playerWin; winningMargin = Math.Abs (float(redCheckers - blackCheckers))}
+    let isOver gameState =
+        let count = checkCount gameState
+
+        match count.blackCheckers, count.redCheckers with
+        | (x, y) when x < 3 || y < 3 -> true //not 0 because then you end up in a state where the checkers are just chasing
+        | _ -> false
+
+    let selectRandomMove (gameState: GameState): Move option =
+        let rnd = System.Random()
+
+        let candidates =
+            getLegalMoves (gameState.board, gameState.currPlayer)
+
+        match List.isEmpty candidates with
+        | true -> None
+        | false ->
+            let randomIndex = rnd.Next(List.length candidates - 1)
+            Some(List.item randomIndex candidates)
+
+    let getGameResult (gameState: GameState) =
+        let count = checkCount gameState
+
+        let playerWin =
+            match count.blackCheckers < count.redCheckers with
+            | false -> Black
+            | true -> Red
+
+        { winner = playerWin
+          winningMargin = Math.Abs(float (count.redCheckers - count.blackCheckers)) }
 
     let simulateRandomGame (gameState: GameState) =
         let rec play game =
             match (isOver game) with
-            | true -> 
-                   let gameResult = getGameResult game
-                   gameResult.winner
+            | true ->
+                let gameResult = getGameResult game
+                gameResult.winner
             | false ->
                 let move = selectRandomMove game
+                Console.WriteLine(move)
                 play (applyMove (game, move))
 
         play gameState
@@ -330,6 +431,8 @@ module Checkers =
               winCounts = Map.add winner (prevCount + 1) node.winCounts }
 
     let rec select node =
+        System.Console.WriteLine("here")
+
         match not (canAddChild node), not (isTerminal node) with
         | true, true ->
             let (move, child) =
@@ -340,11 +443,9 @@ module Checkers =
         | false, _ ->
             let move = getRandomMove node
 
-            let nextState =
-                applyMove (node.gameState, Some move)
+            let nextState = applyMove (node.gameState, Some move)
 
-            let winner =
-                simulateRandomGame (nextState)
+            let winner = simulateRandomGame (nextState)
 
             let child = createNodeFromWinner (nextState, winner)
             (winner, updateWinningState node child move winner)

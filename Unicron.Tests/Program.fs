@@ -5,7 +5,7 @@ module Program =
     [<EntryPoint>]
 
     let main _ =
-        let initialBoard =
+     (*   let initialBoard =
             [ ".r.r.r.r"
               "r.r.r.r."
               ".r.r.r.r"
@@ -17,5 +17,5 @@ module Program =
 
         let board = parseBoard initialBoard
         let move = selectMove (board, Red, 3)
-        System.Console.WriteLine(move)
+        System.Console.WriteLine(move)*)
         0
