@@ -20,14 +20,9 @@ type MyTests(output: ITestOutputHelper) =
     [<Fact>]
     let ``A move is selected`` () =
         let board = parseBoard initialBoard
-        let move = selectMove (board, Red, 1)
+        let move = play (board, Red)
 
-        let hasMove =
-            match move with
-            | None -> false
-            | Some _ -> true
-
-        output.WriteLine("selected move is ", sprintf "%A" move)
+        let hasMove = not (String.IsNullOrEmpty move)
         Assert.Equal(true, hasMove)
 
     [<Fact>]

@@ -1,8 +1,9 @@
 ﻿namespace Unicron
+(* Auto-generated code below aims at helping you parse *)
+(* the standard input according to the problem statement. *)
+open System
 
 module Checkers =
-    open System
-
     type Player =
         | Red
         | Black
@@ -15,10 +16,7 @@ module Checkers =
     type Location = (int * int)
 
     type Move =
-        { origin: Location
-          destination: Location
-          jump: bool
-          jumpLocation: Location option }
+        { origin: Location; destination: Location; jump: bool; jumpLocation: Location option }
 
     type Square = (Piece option * Location)
     type Board = Square list list
@@ -140,20 +138,20 @@ module Checkers =
 
         //generate all 4 possible moves and then filter on possibility
         let possibleLocations =
-            [ Location(locRow + 1, locCol - 1)
-              Location(locRow + 1, locCol + 1)
-              Location(locRow - 1, locCol - 1)
-              Location(locRow - 1, locCol + 1) ]
+            [ Location(locRow + 1, locCol - 1);
+                Location(locRow + 1, locCol + 1);
+                Location(locRow - 1, locCol - 1);
+                Location(locRow - 1, locCol + 1) ]
 
         possibleLocations
         |> List.filter isLocationInRange
         |> List.filter (fun loc -> isLocationPossibleForPiece (piece, loc, currLocation))
         |> List.filter (fun move -> not (isLocationOccupied (board, move)))
         |> List.map (fun move ->
-            { destination = move
-              origin = currLocation
-              jump = false
-              jumpLocation = None })
+            { destination = move;
+                origin = currLocation;
+                jump = false;
+                jumpLocation = None })
 
     let generatePossibleJumpMoves (board: Board, square: Square): Move list =
         let piece, currLocation = square
@@ -161,20 +159,20 @@ module Checkers =
 
         //generate all 4 possible moves and then filter on possibility
         let possibleJumps =
-            [ ((locRow + 1, locCol - 1), (locRow + 2, locCol - 2))
-              ((locRow + 1, locCol + 1), (locRow + 2, locCol + 2))
-              ((locRow - 1, locCol - 1), (locRow - 2, locCol - 2))
-              ((locRow - 1, locCol + 1), (locRow - 2, locCol + 2)) ]
+            [ ((locRow + 1, locCol - 1), (locRow + 2, locCol - 2));
+                ((locRow + 1, locCol + 1), (locRow + 2, locCol + 2));
+                ((locRow - 1, locCol - 1), (locRow - 2, locCol - 2));
+                ((locRow - 1, locCol + 1), (locRow - 2, locCol + 2)) ]
 
         possibleJumps
         |> List.filter (fun jump -> isLocationInRange (fst jump))
         |> List.filter (fun jump -> isLocationPossibleForPiece (piece, (fst jump), currLocation))
         |> List.filter (fun jump -> isLocationOccupiedAndJumpOpen (board, (fst jump), (snd jump), piece))
         |> List.map (fun jump ->
-            { destination = (snd jump)
-              origin = currLocation
-              jump = true
-              jumpLocation = Some(fst jump) }) //pick the jump location
+            { destination = (snd jump);
+                origin = currLocation;
+                jump = true;
+                jumpLocation = Some(fst jump) }) //pick the jump location
 
     let getLegalMoves (board: Board, player: Player): Move list =
         //process the board and find non jump moves for current player
@@ -204,45 +202,45 @@ module Checkers =
         let exploration =
             Math.Sqrt
                 (Math.Log(float parentRollouts)
-                 / (float childRollouts))
+                    / (float childRollouts))
 
         winPct + 1.5 * exploration
 
     type GameState =
-        { board: Board
-          currPlayer: Player
-          nextPlayer: Player
-          previousState: Option<GameState>
-          lastMove: Option<Move> }
+        { board: Board;
+            currPlayer: Player;
+            nextPlayer: Player;
+            previousState: Option<GameState>;
+            lastMove: Option<Move> }
 
     type MCTSNode =
-        { possibleMoves: seq<Move>
-          children: Map<Move, MCTSNode>
-          numRollouts: int
-          gameState: GameState
-          winCounts: Map<Player, int> }
+        { possibleMoves: seq<Move>;
+            children: Map<Move, MCTSNode>;
+            numRollouts: int;
+            gameState: GameState;
+            winCounts: Map<Player, int> }
 
     type GameResult =
-        { winner: Player
-          winningMargin: float }
+        { winner: Player;
+            winningMargin: float }
 
     type CheckerCount =
-        { blackCheckers: int
-          redCheckers: int }
+        { blackCheckers: int;
+            redCheckers: int }
 
     let createNode (gameState: GameState) =
-        { possibleMoves = (getLegalMoves (gameState.board, gameState.currPlayer))
-          children = Map.empty
-          numRollouts = 0
-          gameState = gameState
-          winCounts = Map.empty |> Map.add (Black) 0 |> Map.add (Red) 0 }
+        { possibleMoves = (getLegalMoves (gameState.board, gameState.currPlayer));
+            children = Map.empty;
+            numRollouts = 0;
+            gameState = gameState;
+            winCounts = Map.empty |> Map.add (Black) 0 |> Map.add (Red) 0 }
 
     let createNodeFromWinner (gameState: GameState, winner: Player): MCTSNode =
         let node = createNode (gameState)
 
         { node with
-              numRollouts = 1
-              winCounts = Map.add winner 1 node.winCounts }
+                numRollouts = 1
+                winCounts = Map.add winner 1 node.winCounts }
 
     let unvisitedMoves node =
         getLegalMoves (node.gameState.board, node.gameState.currPlayer)
@@ -328,17 +326,17 @@ module Checkers =
         | Some p ->
             let nextBoard = placeChecker (gameState.board, p)
 
-            { board = nextBoard
-              nextPlayer = getNextPlayer gameState.nextPlayer
-              previousState = Some gameState
-              lastMove = move
-              currPlayer = gameState.nextPlayer }
+            { board = nextBoard;
+                nextPlayer = getNextPlayer gameState.nextPlayer;
+                previousState = Some gameState;
+                lastMove = move;
+                currPlayer = gameState.nextPlayer }
         | None ->
-            { board = gameState.board
-              nextPlayer = getNextPlayer gameState.nextPlayer
-              previousState = Some gameState
-              lastMove = None
-              currPlayer = gameState.nextPlayer }
+            { board = gameState.board;
+                nextPlayer = getNextPlayer gameState.nextPlayer;
+                previousState = Some gameState;
+                lastMove = None;
+                currPlayer = gameState.nextPlayer }
 
     let random = Random()
 
@@ -375,8 +373,8 @@ module Checkers =
             |> List.filter (isSquareOccupiedByPlayer Black)
             |> List.length
 
-        { blackCheckers = blackCheckers
-          redCheckers = redCheckers }
+        { blackCheckers = blackCheckers;
+            redCheckers = redCheckers }
 
     let isOver gameState =
         let count = checkCount gameState
@@ -405,8 +403,8 @@ module Checkers =
             | false -> Black
             | true -> Red
 
-        { winner = playerWin
-          winningMargin = Math.Abs(float (count.redCheckers - count.blackCheckers)) }
+        { winner = playerWin;
+            winningMargin = Math.Abs(float (count.redCheckers - count.blackCheckers)) }
 
     let simulateRandomGame (gameState: GameState) =
         let rec play game =
@@ -416,7 +414,6 @@ module Checkers =
                 gameResult.winner
             | false ->
                 let move = selectRandomMove game
-                Console.WriteLine(move)
                 play (applyMove (game, move))
 
         play gameState
@@ -426,13 +423,11 @@ module Checkers =
         let prevCount = Map.find winner node.winCounts
 
         { node with
-              children = Map.add move child node.children
-              numRollouts = node.numRollouts + 1
-              winCounts = Map.add winner (prevCount + 1) node.winCounts }
+                children = Map.add move child node.children
+                numRollouts = node.numRollouts + 1
+                winCounts = Map.add winner (prevCount + 1) node.winCounts }
 
     let rec select node =
-        System.Console.WriteLine("here")
-
         match not (canAddChild node), not (isTerminal node) with
         | true, true ->
             let (move, child) =
@@ -455,11 +450,11 @@ module Checkers =
 
     let selectMove (board: Board, player: Player, numRounds: int) =
         let gameState =
-            { board = board
-              nextPlayer = getNextPlayer player
-              currPlayer = player
-              lastMove = None
-              previousState = None }
+            { board = board;
+                nextPlayer = getNextPlayer player;
+                currPlayer = player;
+                lastMove = None;
+                previousState = None }
 
         let hasNoLegalMoves =
             getLegalMoves (board, player) |> Seq.isEmpty
@@ -478,3 +473,13 @@ module Checkers =
             |> Seq.map (fun (move, child) -> (winningPercent child nextPlayer, move))
             |> Seq.maxBy (fun (p, _) -> p)
             |> (fun (_, move) -> Some move)
+
+    let play (board: Board, player: Player) =
+        let move = selectMove (board, player, 1)
+
+        match move with
+        | None -> ""
+        | Some move -> 
+            (convertLocationToString move.origin) + (convertLocationToString move.destination)
+
+
