@@ -194,37 +194,43 @@ module Checkers =
 
         winPct + 1.5 * exploration
 
+    type GameState =
+        { board: Board
+          currPlayer: Player
+          nextPlayer: Player
+          previousState: Option<GameState>
+          lastMove: Option<Move> }
+
     type MCTSNode =
         { possibleMoves: seq<Move>
           children: Map<Move, MCTSNode>
           numRollouts: int
-          gameState: Board
-          winCounts: Map<Player, int>
-          currentPlayer: Player }
+          gameState: GameState
+          winCounts: Map<Player, int> }
+    type GameResult = {winner: Player; winningMargin: float}
 
-    let createNode (gameState: Board, player: Player) =
-        { possibleMoves = (getLegalMoves (gameState, player))
+    let createNode (gameState: GameState) =
+        { possibleMoves = (getLegalMoves (gameState.board, gameState.currPlayer))
           children = Map.empty
           numRollouts = 0
           gameState = gameState
-          winCounts = Map.empty |> Map.add (Black) 0 |> Map.add (Red) 0
-          currentPlayer = player }
+          winCounts = Map.empty |> Map.add (Black) 0 |> Map.add (Red) 0 }
 
-    let createNodeFromWinner (gameState: Board, winner: Player): MCTSNode =
-        let node = createNode (gameState, winner)
+    let createNodeFromWinner (gameState: GameState, winner: Player): MCTSNode =
+        let node = createNode (gameState)
 
         { node with
               numRollouts = 1
               winCounts = Map.add winner 1 node.winCounts }
 
     let unvisitedMoves node =
-        getLegalMoves (node.gameState, node.currentPlayer)
+        getLegalMoves (node.gameState.board, node.gameState.currPlayer)
         |> Seq.filter (fun mv -> not (Map.containsKey mv node.children))
 
     let canAddChild node = Seq.length (unvisitedMoves node) > 0
 
     let isTerminal node =
-        getLegalMoves (node.gameState, node.currentPlayer)
+        getLegalMoves (node.gameState.board, node.gameState.currPlayer)
         |> Seq.isEmpty
 
     let winningPercent node player =
@@ -243,7 +249,7 @@ module Checkers =
         |> Seq.maxBy (fun (_, n) -> n)
         |> fst
 
-    let applyMove (board: Board, player: Player, move: Move) = board
+    let applyMove (gameState: GameState, move: Move option) = gameState
 
     let random = Random()
 
@@ -253,13 +259,11 @@ module Checkers =
         let index =
             random.Next(Seq.length possibleMoves - 1)
 
-        let nextPlayer = (getNextPlayer node.currentPlayer)
         let newMove = possibleMoves |> Seq.item index
 
-        let newGameState =
-            applyMove (node.gameState, nextPlayer, newMove)
+        let newGameState = applyMove (node.gameState, Some newMove)
 
-        (newMove, createNode (newGameState, nextPlayer))
+        (newMove, createNode (newGameState))
 
     let getRandomMove node =
         let possibleMoves = unvisitedMoves node
@@ -273,15 +277,46 @@ module Checkers =
 
     let determineWinner gameState = Red
 
-    let selectRandomMove gameState = ((0, 0), (0, 0))
+    let selectRandomMove (gameState:GameState) : Move option =
+        let rnd = System.Random()
 
-    let simulateRandomGame (gameState: Board, player: Player) =
+        let candidates =
+            getLegalMoves (gameState.board, gameState.currPlayer)
+
+        match List.isEmpty candidates with
+        | false -> None
+        | true ->
+            let randomIndex = rnd.Next(List.length candidates - 1)
+            Some (List.item randomIndex candidates)
+
+    let getGameResult (gameState:GameState) =
+        let redCheckers =
+            gameState.board
+            |> List.concat
+            |> List.filter (isSquareOccupiedByPlayer Red)
+            |> List.length
+
+        let blackCheckers =
+            gameState.board
+            |> List.concat
+            |> List.filter (isSquareOccupiedByPlayer Black)
+            |> List.length
+
+        let playerWin = match blackCheckers < redCheckers with
+                            | false -> Black
+                            | true -> Red
+
+        { winner = playerWin; winningMargin = Math.Abs (float(redCheckers - blackCheckers))}
+
+    let simulateRandomGame (gameState: GameState) =
         let rec play game =
             match (isOver game) with
-            | true -> determineWinner game
+            | true -> 
+                   let gameResult = getGameResult game
+                   gameResult.winner
             | false ->
                 let move = selectRandomMove game
-                play (applyMove (game, getNextPlayer player, move))
+                play (applyMove (game, move))
 
         play gameState
 
@@ -295,39 +330,47 @@ module Checkers =
               winCounts = Map.add winner (prevCount + 1) node.winCounts }
 
     let rec select node =
-        if not (canAddChild node) && not (isTerminal node) then
+        match not (canAddChild node), not (isTerminal node) with
+        | true, true ->
             let (move, child) =
-                selectChild (getNextPlayer node.currentPlayer) node
+                selectChild (getNextPlayer node.gameState.currPlayer) node
 
             let (winner, expanded) = select child
             (winner, updateWinningState node expanded move winner)
-        elif canAddChild node then
+        | false, _ ->
             let move = getRandomMove node
 
             let nextState =
-                applyMove (node.gameState, (getNextPlayer node.currentPlayer), move)
+                applyMove (node.gameState, Some move)
 
             let winner =
-                simulateRandomGame (nextState, node.currentPlayer)
+                simulateRandomGame (nextState)
 
             let child = createNodeFromWinner (nextState, winner)
             (winner, updateWinningState node child move winner)
-        else
-            let winner = determineWinner node.gameState
-            (winner, node)
+        | _, _ ->
+            let gameResult = getGameResult node.gameState
+            (gameResult.winner, node)
 
     let selectMove (board: Board, player: Player, numRounds: int) =
-        let hasLegalMoves =
+        let gameState =
+            { board = board
+              nextPlayer = getNextPlayer player
+              currPlayer = player
+              lastMove = None
+              previousState = None }
+
+        let hasNoLegalMoves =
             getLegalMoves (board, player) |> Seq.isEmpty
 
         let nextPlayer = getNextPlayer player
 
-        match hasLegalMoves with
-        | false -> None
-        | true ->
+        match hasNoLegalMoves with
+        | true -> None
+        | false ->
             let root =
                 seq { 1 .. numRounds }
-                |> Seq.fold (fun node _ -> select node |> snd) (createNode (board, player))
+                |> Seq.fold (fun node _ -> select node |> snd) (createNode gameState)
 
             root.children
             |> Map.toSeq
