@@ -370,12 +370,17 @@ module Checkers =
         { blackCheckers = blackCheckers;
             redCheckers = redCheckers }
 
-    let isOver gameState =
+    let isOver gameState startTime =
         let count = checkCount gameState
+        let currTime = DateTime.Now
+        let diffTime = Math.Abs( float((startTime - currTime).Milliseconds))
 
-        match count.blackCheckers, count.redCheckers with
-        | (x, y) when x < 3 || y < 3 -> true //not 0 because then you end up in a state where the checkers are just chasing
-        | _ -> false
+        match diffTime with
+        | (diffTime) when diffTime > 75. -> true
+        | _ ->
+            match count.blackCheckers, count.redCheckers with
+            | (x, y) when x < 1 || y < 1 -> true //not 0 because then you end up in a state where the checkers are just chasing
+            | _ -> false
 
     let selectRandomMove (gameState: GameState): Move option =
         let rnd = System.Random()
@@ -393,16 +398,16 @@ module Checkers =
         let count = checkCount gameState
 
         let playerWin =
-            match count.blackCheckers < count.redCheckers with
+            match count.blackCheckers > count.redCheckers with
             | false -> Black
             | true -> Red
 
         { winner = playerWin;
             winningMargin = Math.Abs(float (count.redCheckers - count.blackCheckers)) }
 
-    let simulateRandomGame (gameState: GameState) =
+    let simulateRandomGame (gameState: GameState, startTime:DateTime) =
         let rec play game =
-            match (isOver game) with
+            match (isOver game startTime) with
             | true ->
                 let gameResult = getGameResult game
                 gameResult.winner
@@ -442,8 +447,8 @@ module Checkers =
 
                 let nextState = applyMove (node.gameState, Some move)
 
-                let winner = simulateRandomGame (nextState)
-
+                let winner = simulateRandomGame (nextState, startTime)
+                eprintfn "%A" winner
                 let child = createNodeFromWinner (nextState, winner)
                 (winner, updateWinningState node child move winner)
             | _, _ ->
