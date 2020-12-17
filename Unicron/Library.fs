@@ -14,7 +14,7 @@ module Checkers =
     type Location = (int * int)
 
     type Move =
-        { origin: Location; destination: Location; jump: bool; jumpLocation: Location option }
+        { origin: Location; destination: Location; jump: bool; jumpLocations: Location list }
 
     type Square = (Piece option * Location)
     type Board = Square list list
@@ -149,7 +149,7 @@ module Checkers =
             { destination = move;
                 origin = currLocation;
                 jump = false;
-                jumpLocation = None })
+                jumpLocations = [] })
 
     let generatePossibleJumpMoves (board: Board, square: Square): Move list =
         let piece, currLocation = square
@@ -170,7 +170,7 @@ module Checkers =
             { destination = (snd jump);
                 origin = currLocation;
                 jump = true;
-                jumpLocation = Some(fst jump) }) //pick the jump location
+                jumpLocations = [(fst jump)] }) //pick the jump location
 
     let getLegalMoves (board: Board, player: Player): Move list =
         //process the board and find non jump moves for current player
@@ -278,7 +278,7 @@ module Checkers =
         replace board board.[row] newRow
 
     let placeChecker (board: Board, player:Player, move: Move) =
-        let { origin = myOrigin; destination = myDestination; jump = myJump; jumpLocation = myJumpLocation } = move
+        let { origin = myOrigin; destination = myDestination; jump = myJump; jumpLocations = myJumpLocation } = move
         let (originRow, originCol) = myOrigin
         let (destRow, destCol) = myDestination
         let (piece, _) = board.[originRow].[originCol]
@@ -307,9 +307,9 @@ module Checkers =
             | false -> finalBoard
             | true ->
                 let (jumpRow, jumpCol) = 
-                    match myJumpLocation with
-                    | None -> (0, 0)
-                    | Some j -> j
+                    match myJumpLocation |> List.length with
+                    | 0 -> (0, 0)
+                    | _ -> myJumpLocation.[0]
 
                 let finalJumpBoard = updateBoard(finalBoard, jumpRow, jumpCol, '.')
 
