@@ -2,6 +2,7 @@
 open System
 
 module Checkers = 
+    (*Type information for the game checkers*)
     type Player =
         | Red
         | Black
@@ -19,6 +20,30 @@ module Checkers =
     type Square = (Piece option * Location)
     type Board = Square list list
 
+    (*Type information for the monte carlo tree search*)
+    type GameState =
+        { board: Board;
+            currPlayer: Player;
+            nextPlayer: Player;
+            previousState: Option<GameState>;
+            lastMove: Option<Move> }
+
+    type MCTSNode =
+        { possibleMoves: seq<Move>;
+            children: Map<Move, MCTSNode>;
+            numRollouts: int;
+            gameState: GameState;
+            winCounts: Map<Player, int> }
+
+    type GameResult =
+        { winner: Player;
+            winningMargin: float }
+
+    type CheckerCount =
+        { blackCheckers: int;
+            redCheckers: int }
+
+    (*Functions that drive the game engine*)
     let getBoardState row col boardStateCharacter: Square =
         match boardStateCharacter with
         | '.' -> (None, (row, col))
@@ -204,28 +229,6 @@ module Checkers =
 
         winPct + 1.5 * exploration
 
-    type GameState =
-        { board: Board;
-            currPlayer: Player;
-            nextPlayer: Player;
-            previousState: Option<GameState>;
-            lastMove: Option<Move> }
-
-    type MCTSNode =
-        { possibleMoves: seq<Move>;
-            children: Map<Move, MCTSNode>;
-            numRollouts: int;
-            gameState: GameState;
-            winCounts: Map<Player, int> }
-
-    type GameResult =
-        { winner: Player;
-            winningMargin: float }
-
-    type CheckerCount =
-        { blackCheckers: int;
-            redCheckers: int }
-
     let createNode (gameState: GameState) =
         { possibleMoves = (getLegalMoves (gameState.board, gameState.currPlayer));
             children = Map.empty;
@@ -333,18 +336,6 @@ module Checkers =
                 currPlayer = gameState.nextPlayer }
 
     let random = Random()
-
-    let addRandomChild node =
-        let possibleMoves = unvisitedMoves node
-
-        let index =
-            random.Next(Seq.length possibleMoves - 1)
-
-        let newMove = possibleMoves |> Seq.item index
-
-        let newGameState = applyMove (node.gameState, Some newMove)
-
-        (newMove, createNode (newGameState))
 
     let getRandomMove node =
         let possibleMoves = unvisitedMoves node
